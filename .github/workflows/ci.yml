@@ -24,7 +24,7 @@ jobs:
         run: flake8 app/ tests/
 
   test:
-    needs: lint
+    # needs: lint  # Jobs paralelos para comparacao
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
