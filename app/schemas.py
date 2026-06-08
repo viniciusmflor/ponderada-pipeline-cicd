@@ -2,7 +2,6 @@
 Schemas Pydantic — validacao e serializacao de dados da API.
 """
 from datetime import datetime
-from typing import Optional
 from pydantic import BaseModel, ConfigDict
 
 

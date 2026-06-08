@@ -20,7 +20,6 @@ from jose import jwt
 from app.database import engine, get_db, Base
 from app.models import Produto, NotaFiscal, ItemNota
 from app.schemas import (
-    ProdutoResponse, ProdutoCreate,
     NotaFiscalResponse,
     Token, LoginRequest,
 )
