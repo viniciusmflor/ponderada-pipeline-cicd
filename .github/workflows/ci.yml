@@ -38,38 +38,38 @@ jobs:
           restore-keys: ${{ runner.os }}-pip-
       - name: Instalar dependencias
         run: pip install -r requirements.txt
-      - name: Executar testes com JSON
+      - name: Executar testes
         run: |
-          pytest tests/ -v --tb=short --junitxml=test-results.xml -q 2>&1 | tee pytest-output.txt || true
+          pytest tests/ -v --tb=short --junitxml=test-results.xml 2>&1 | tee pytest-output.txt || true
+      - name: Gerar metricas dos testes
+        if: always()
+        run: |
           python3 -c "
-          import subprocess, json, re
+          import xml.etree.ElementTree as ET, json, os
 
-          result = subprocess.run(
-              ['pytest', 'tests/', '--tb=short', '-q'],
-              capture_output=True, text=True
-          )
-          output = result.stdout + result.stderr
+          metrics = {'test_count': 0, 'test_failures': 0, 'test_passed': 0,
+                     'avg_test_time_ms': 0, 'total_duration_s': 0}
 
-          passed = len(re.findall(r'PASSED', output))
-          failed = len(re.findall(r'FAILED', output))
-          errors = len(re.findall(r'ERROR', output))
-          total = passed + failed + errors
+          if os.path.exists('test-results.xml'):
+              tree = ET.parse('test-results.xml')
+              root = tree.getroot()
+              ts = root.find('.//testsuite') or root
+              tests = int(ts.get('tests', 0))
+              failures = int(ts.get('failures', 0))
+              errors = int(ts.get('errors', 0))
+              duration = float(ts.get('time', 0))
 
-          duration_match = re.search(r'in ([\d.]+)s', output)
-          duration = float(duration_match.group(1)) if duration_match else 0
+              metrics = {
+                  'test_count': tests,
+                  'test_failures': failures + errors,
+                  'test_passed': tests - failures - errors,
+                  'avg_test_time_ms': round((duration * 1000 / tests), 2) if tests > 0 else 0,
+                  'total_duration_s': round(duration, 2)
+              }
 
-          avg_ms = (duration * 1000 / total) if total > 0 else 0
-
-          metrics = {
-              'test_count': total,
-              'test_failures': failed + errors,
-              'test_passed': passed,
-              'avg_test_time_ms': round(avg_ms, 2),
-              'total_duration_s': round(duration, 2)
-          }
           with open('test-metrics.json', 'w') as f:
               json.dump(metrics, f, indent=2)
-          print(f'Metricas: {total} testes, {failed} falhas, avg {avg_ms:.1f}ms')
+          print(f\"Metricas: {metrics['test_count']} testes, {metrics['test_failures']} falhas, avg {metrics['avg_test_time_ms']}ms\")
           "
       - name: Upload artefato de testes
         if: always()
