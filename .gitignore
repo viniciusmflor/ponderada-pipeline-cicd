@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+*.db
+.pytest_cache/
+test.db
+asis_dev.db
+analytics/.venv/

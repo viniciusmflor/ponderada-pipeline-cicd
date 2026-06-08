@@ -1,0 +1,84 @@
+name: CI Pipeline
+on:
+  push:
+    branches: [main, experimento-cicd]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: ${{ runner.os }}-pip-
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+      - name: Executar flake8
+        run: flake8 app/ tests/
+
+  test:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: ${{ runner.os }}-pip-
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+      - name: Executar testes com JSON
+        run: |
+          pytest tests/ -v --tb=short --junitxml=test-results.xml -q 2>&1 | tee pytest-output.txt || true
+          python3 -c "
+          import subprocess, json, re
+
+          result = subprocess.run(
+              ['pytest', 'tests/', '--tb=short', '-q'],
+              capture_output=True, text=True
+          )
+          output = result.stdout + result.stderr
+
+          passed = len(re.findall(r'PASSED', output))
+          failed = len(re.findall(r'FAILED', output))
+          errors = len(re.findall(r'ERROR', output))
+          total = passed + failed + errors
+
+          # Extrair duracao
+          duration_match = re.search(r'in ([\d.]+)s', output)
+          duration = float(duration_match.group(1)) if duration_match else 0
+
+          avg_ms = (duration * 1000 / total) if total > 0 else 0
+
+          metrics = {
+              'test_count': total,
+              'test_failures': failed + errors,
+              'test_passed': passed,
+              'avg_test_time_ms': round(avg_ms, 2),
+              'total_duration_s': round(duration, 2)
+          }
+          with open('test-metrics.json', 'w') as f:
+              json.dump(metrics, f, indent=2)
+          print(f'Metricas: {total} testes, {failed} falhas, avg {avg_ms:.1f}ms')
+          "
+      - name: Upload artefato de testes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            test-results.xml
+            test-metrics.json
+            pytest-output.txt
+          retention-days: 90
