@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  lint:
+  pipeline-completo:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,22 +22,6 @@ jobs:
         run: pip install -r requirements.txt
       - name: Executar flake8
         run: flake8 app/ tests/
-
-  test:
-    needs: lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
-          restore-keys: ${{ runner.os }}-pip-
-      - name: Instalar dependencias
-        run: pip install -r requirements.txt
       - name: Executar testes com JSON
         run: |
           pytest tests/ -v --tb=short --junitxml=test-results.xml -q 2>&1 | tee pytest-output.txt || true
@@ -55,7 +39,6 @@ jobs:
           errors = len(re.findall(r'ERROR', output))
           total = passed + failed + errors
 
-          # Extrair duracao
           duration_match = re.search(r'in ([\d.]+)s', output)
           duration = float(duration_match.group(1)) if duration_match else 0
 
